@@ -11,7 +11,7 @@ int main() {
 	scanf("%d", &n);
 
 	M = (int*) malloc(n * n * sizeof(int));
-	v = (int*) malloc(n " sizeof(int));
+	v = (int*) malloc(n * sizeof(int));
 			  
 	//Se generan M y v
 	for (i = 0; i < n; i++) {
