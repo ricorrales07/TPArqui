@@ -6,6 +6,14 @@ int* calcularQ(int* M, int* v, int myid);
 
 int main(int argc, char** argv) {
 
+	/**************************
+	n: tamano de la matriz
+	i,j: auxiliares para ciclos
+	M: matriz
+	v: vector
+	Q = Mv
+	**************************/
+
 	int n, i, j, numprocs, myid;
 	int* M, v, Q;
 	srand(time(NULL));
@@ -19,7 +27,7 @@ int main(int argc, char** argv) {
 		printf("Inserte el numero de filas/columnas (múltiplo de %d): ", numprocs);
 		scanf("%d", &n);
 
-		M = (int*) malloc(n * n * sizeof(int)); //tal vez sea mejor alocar por filas/columnas
+		M = (int*) malloc(n * n * sizeof(int)); //tal vez sea mejor alocar por filas
 		v = (int*) malloc(n * sizeof(int));
 
 		//Se generan M y v
@@ -30,9 +38,12 @@ int main(int argc, char** argv) {
 			v[i] = rand() % 6;
 		} //end for
 	} //end if
+
+	//repartir las filas de la matriz
+	//repartirFilas(M);
 		
 	//calcular Q = Mv
-	Q = calcularQ(M, v, myid);
+	//Q = calcularQ(M, v, myid);
 	
 	//calcular tp = número total de primos en M
 	//calcularTp(M);
@@ -53,14 +64,4 @@ int main(int argc, char** argv) {
 	MPI_Finalize();
 	
 	return 0;
-}
-
-int* calcularQ(int* M, int* v, int myid) {
-	int* Q;
-	
-	//repartir filas de M y broadcastear v
-	//multiplicar la fila recibida por v
-	//retornar la respuesta al proceso 0
-	
-	return Q;
 }
