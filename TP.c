@@ -2,20 +2,24 @@
 #include <stdlib.h>
 #include "mpi.h"
 
+void repartirFilas(int* M, int filas, int numprocs, int* M_porcion, int myid);
 int* calcularQ(int* M, int* v, int myid);
+
+int i, j, k; //auxiliares para ciclos
+int aux;
 
 int main(int argc, char** argv) {
 
 	/**************************
 	n: tamano de la matriz
-	i,j: auxiliares para ciclos
 	M: matriz
 	v: vector
 	Q = Mv
+	M_porcion: la porcion de la matriz que se reparte a cada proceso
 	**************************/
 
-	int n, i, j, numprocs, myid;
-	int* M, v, Q;
+	int n, numprocs, myid;
+	int* M, v, Q, M_porcion;
 	srand(time(NULL));
 	
 	MPI_Init(&argc, &argv);
@@ -27,8 +31,10 @@ int main(int argc, char** argv) {
 		printf("Inserte el numero de filas/columnas (múltiplo de %d): ", numprocs);
 		scanf("%d", &n);
 
-		M = (int*) malloc(n * n * sizeof(int)); //tal vez sea mejor alocar por filas
+		M = (int*) malloc(n * n * sizeof(int)); //tal vez sea mejor alocar por filas (mejor no; complica el scatterv)
 		v = (int*) malloc(n * sizeof(int));
+
+		//TODO: revisar que no sean NULL
 
 		//Se generan M y v
 		for (i = 0; i < n; i++) {
@@ -40,7 +46,7 @@ int main(int argc, char** argv) {
 	} //end if
 
 	//repartir las filas de la matriz
-	//repartirFilas(M);
+	repartirFilas(M, n, numprocs, M_porcion, myid);
 		
 	//calcular Q = Mv
 	//Q = calcularQ(M, v, myid);
@@ -64,4 +70,54 @@ int main(int argc, char** argv) {
 	MPI_Finalize();
 	
 	return 0;
+}
+
+void repartirFilas(int* M, int n, int numprocs, int* M_porcion, int myid) {	
+
+	/****************************
+	sendcounts: cuántos elementos le tocan a cada proceso
+	displs: a partir de dónde se toma cada conjunto de elementos
+	recvcount: cuántos elementos recibe cada proceso
+	TODO: revisar si esta info se ocupa más adelante y sacarla de acá si es necesario
+	****************************/
+	int sendcounts[numprocs], displs[numprocs], recvcount;
+	int filas_por_proceso;
+
+	filas_por_proceso = n / numprocs; //no debería dar problemas porque numprocs divide a n
+
+	//en proceso 0:
+	if (myid == 0) {
+
+		//calcular sendcounts
+		for (i = 0; i < numprocs; i++)
+			sendcounts[i] = (filas_por_proceso + 2) * n;
+
+		//el primero y el último proceso reciben una fila menos
+		sendcounts[0] -= n;
+		sendcounts[numprocs - 1] -= n;
+
+		//calcular displs
+		for (i = 0; i < numprocs; i++)
+			displs[i] = (filas_por_proceso * i - 1) * n;
+		
+		//excepcion para el primer proceso
+		displs[0] = 0;
+	} //end if
+
+
+
+	//en cada proceso:
+	//calcular recvcount
+	if (myid == 0 || myid == numprocs - 1)
+		recvcount = (filas_por_proceso + 1) * n;
+	else
+		recvcount = (filas_por_proceso + 2) * n;
+
+	//asignar M_porcion
+	M_porcion = (int*) malloc(recvcount * sizeof(int));
+	//TODO: revisar que no sea NULL
+	
+	
+
+	MPI_Scatterv(M, sendcounts, displs, MPI_INT, M_porcion, recvcount, MPI_INT, 0, MPI_COMM_WORLD);
 }
