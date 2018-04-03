@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include "mpi.h"
 
-void repartirFilas(int* M, int filas, int numprocs, int* M_porcion, int myid);
+int* repartirFilas(int* M, int filas, int numprocs, int myid);
 int* calcularQ(int* M, int* v, int myid);
 
 int i, j, k; //auxiliares para ciclos
@@ -46,7 +46,7 @@ int main(int argc, char** argv) {
 	} //end if
 
 	//repartir las filas de la matriz
-	repartirFilas(M, n, numprocs, M_porcion, myid);
+	M_porcion = repartirFilas(M, n, numprocs, myid);
 		
 	//calcular Q = Mv
 	//Q = calcularQ(M, v, myid);
@@ -72,7 +72,7 @@ int main(int argc, char** argv) {
 	return 0;
 }
 
-void repartirFilas(int* M, int n, int numprocs, int* M_porcion, int myid) {	
+int* repartirFilas(int* M, int n, int numprocs, int myid) {	
 
 	/****************************
 	sendcounts: cuántos elementos le tocan a cada proceso
@@ -82,6 +82,7 @@ void repartirFilas(int* M, int n, int numprocs, int* M_porcion, int myid) {
 	****************************/
 	int sendcounts[numprocs], displs[numprocs], recvcount;
 	int filas_por_proceso;
+	int* M_porcion;
 
 	filas_por_proceso = n / numprocs; //no debería dar problemas porque numprocs divide a n
 
@@ -120,4 +121,6 @@ void repartirFilas(int* M, int n, int numprocs, int* M_porcion, int myid) {
 	
 
 	MPI_Scatterv(M, sendcounts, displs, MPI_INT, M_porcion, recvcount, MPI_INT, 0, MPI_COMM_WORLD);
+
+	return M_porcion;
 }
