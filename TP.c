@@ -142,8 +142,9 @@ int* repartirFilas(int* M, int n, int numprocs, int myid, int* filas_por_proceso
 
 void calcularP(int* M_porcion, int myid, int numprocs, int* filas_por_proceso, int n, int* P) {
 	int primos[4] = {2, 3, 5, 7};
+	int start;
 
-	for (i = 0; i < filas_por_proceso + ((myid == 0 || myid == numprocs - 1) ? 1 : 2); i++) {
+	for (i = start = (myid == 0) ? 0 : 1; i < start + filas_por_proceso; i++) {
 		for (j = 0; j < n; j++) {
 			for (k = 0; k < 4; k++) {
 				if (M_porcion[i][j] == primos[k])
