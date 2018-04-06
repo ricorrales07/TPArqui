@@ -36,7 +36,6 @@ int main(int argc, char **argv) {
 		printf("Inserte el numero de filas/columnas (múltiplo de %d): ", numprocs);
 		scanf("%d", &n);
 		//TODO: revisar que de verdad sea un múltiplo
-		//TODO: ENVIAR n A LOS OTROS PROCESOS
 
 		M = (int *) malloc(n * n * sizeof(int)); //tal vez sea mejor alocar por filas (mejor no; complica el scatterv)
 		v = (int *) malloc(n * sizeof(int));
@@ -62,16 +61,21 @@ int main(int argc, char **argv) {
 		printf("\nVector v:\n");
 		for (i = 0; i < n; i++)
 			printf("%d ", v[i]);
+		printf("\n");
 	} //end if
 
-	//TODO: RECIBIR n
-	//TODO: ESPERAR AL PROCESO 0
+	MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+	//printf("Proceso %d recibió n: %d\n", myid, n);
 
 	//cada proceso tiene un vector P para resultados parciales
-	P = (int*) malloc(n * sizeof(int));
+	P = (int *) malloc(n * sizeof(int));
 	//TODO: revisar que no sea NULL
 	for (i = 0; i < n; i++)
 		P[i] = 0;
+	filas_por_proceso = (int *) malloc(sizeof(int));
+
+	//printf("Proceso %d asignó memoria a P.\n", myid);
 
 	//repartir las filas de la matriz
 	M_porcion = repartirFilas(M, n, numprocs, myid, filas_por_proceso);
@@ -94,7 +98,7 @@ int main(int argc, char **argv) {
 		printf("\nVector P:\n");
 		for (i = 0; i < n; i++)
 			printf("%d ", P[i]);
-		printf("\nTp = %d", Tp);
+		printf("\nTp = %d\n", Tp);
 
 		free(M);
 		free(v);
@@ -102,6 +106,7 @@ int main(int argc, char **argv) {
 
 	free(M_porcion);
 	free(P);
+	free(filas_por_proceso);
 	
 	MPI_Finalize();
 	
@@ -152,11 +157,12 @@ int *repartirFilas(int *M, int n, int numprocs, int myid, int *filas_por_proceso
 	//asignar M_porcion
 	M_porcion = (int *) malloc(recvcount * sizeof(int));
 	//TODO: revisar que no sea NULL
-	//TODO: liberar esta memoria
 	
 	
 
 	MPI_Scatterv(M, sendcounts, displs, MPI_INT, M_porcion, recvcount, MPI_INT, 0, MPI_COMM_WORLD);
+
+	//printf("Proceso %d recibió su porción de M.\n", myid);
 
 	return M_porcion;
 }
