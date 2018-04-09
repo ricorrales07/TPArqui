@@ -87,7 +87,7 @@ int main(int argc, char **argv) {
 	M_porcion = repartirFilas(M, n, numprocs, myid, filas_por_proceso);
 		
 	//calcular Q = Mv
-	calcularQ(M_porcion, v, myid, Q_parcial);
+	calcularQ(M_porcion, v, myid, Q_parcial, Q);
 
 	//calcular P tal que P[i] = cantidad de primos en la columna i de M
 	calcularP(M_porcion, myid, numprocs, filas_por_proceso, n, P);
@@ -172,12 +172,13 @@ int *repartirFilas(int *M, int n, int numprocs, int myid, int *filas_por_proceso
 	return M_porcion;
 }
 
-void calcularQ(int *M_porcion, int *v, int myid, int Q_parcial) {
+void calcularQ(int *M_porcion, int *v, int myid, int *Q_parcial, int *Q) {
 	/****************************
 	M_porcion: porción de M repartida a un proceso
 	v: vector por el cual será multiplicado M
 	myid: id del proceso actual
 	Q_parcial: porción de Q a ser calculada por cada proceso
+	Q: matriz resultante
 	****************************/
 	Q_parcial = (int *) malloc(*filas_por_proceso * n * sizeof(int)); 
 	int start;
