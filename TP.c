@@ -1,5 +1,5 @@
 //Ricardo Corrales Barquero, B32090
-//Gabriel Vidaurre Rodríguez, 
+//Gabriel Vidaurre Rodríguez, B47568
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,7 +30,7 @@ int main(int argc, char **argv) {
 	**************************/
 
 	int n, numprocs, myid, Tp;
-	int *M, *v, *Q, *M_porcion, *filas_por_proceso, *P, *B;
+	int *M, *v, *Q, *Q_parcial, *M_porcion, *filas_por_proceso, *P, *B;
 	double small_start, big_start;
 
 	big_start = MPI_Wtime(); //no estoy seguro si puedo llamar a esta función antes de MPI_Init()	
@@ -50,6 +50,7 @@ int main(int argc, char **argv) {
 		small_start = MPI_Wtime();
 
 		M = (int *) malloc(n * n * sizeof(int)); //tal vez sea mejor alocar por filas (mejor no; complica el scatterv)
+		Q = (int *) malloc(n * sizeof(int));
 		v = (int *) malloc(n * sizeof(int));
 
 		if (M == NULL || v == NULL) {
@@ -86,7 +87,7 @@ int main(int argc, char **argv) {
 	M_porcion = repartirFilas(M, n, numprocs, myid, filas_por_proceso);
 		
 	//calcular Q = Mv
-	//Q = calcularQ(M, v, myid);
+	calcularQ(M_porcion, v, myid, Q_parcial);
 
 	//calcular P tal que P[i] = cantidad de primos en la columna i de M
 	calcularP(M_porcion, myid, numprocs, filas_por_proceso, n, P);
@@ -171,6 +172,34 @@ int *repartirFilas(int *M, int n, int numprocs, int myid, int *filas_por_proceso
 	return M_porcion;
 }
 
+void calcularQ(int *M_porcion, int *v, int myid, int Q_parcial) {
+	Q_parcial = (int *) malloc(*filas_por_proceso * n * sizeof(int)); 
+	int start;
+	int end;
+	/
+	//llenar Q_parcial de 0s
+	for(i = 0; i < *filas_por_proceso * n; i++) {
+		*(Q_parcial + i) = 0;
+	}
+	
+	start = (myid == 0) ? 0 : 1;
+	end = start + *filas_por_proceso;
+
+	for (i = 0; i < *filas_por_proceso; i++) {
+		for (j = start; j < end; j++) {
+			for (k = 0; k < n; k++) {
+				Q_parcial[i] += *(M_porcion + j * n + k) * v[k];
+			}
+		}
+	}
+	
+	MPI_Gather(Q_parcial, *filas_por_proceso * n, MPI_INT,
+				Q, *filas_por_proceso * n, MPI_INT,
+				0, MPI_COMM_WORLD);
+	
+	free(Q_parcial);
+}
+
 void calcularP(int *M_porcion, int myid, int numprocs, int *filas_por_proceso, int n, int *P) {
 	int primos[4] = {2, 3, 5, 7};
 	int start, end;
@@ -197,6 +226,7 @@ int calcularTp(int *P, int n) {
 		accum += P[i];
 	return accum;
 }
+
 
 void desplegar_resultados(int n, int numprocs, int Tp, double big_start, double small_start, int *M, int *v, int *Q, int *P, int *B) {
 	double small_end, big_end;
