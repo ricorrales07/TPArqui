@@ -173,10 +173,16 @@ int *repartirFilas(int *M, int n, int numprocs, int myid, int *filas_por_proceso
 }
 
 void calcularQ(int *M_porcion, int *v, int myid, int Q_parcial) {
+	/****************************
+	M_porcion: porción de M repartida a un proceso
+	v: vector por el cual será multiplicado M
+	myid: id del proceso actual
+	Q_parcial: porción de Q a ser calculada por cada proceso
+	****************************/
 	Q_parcial = (int *) malloc(*filas_por_proceso * n * sizeof(int)); 
 	int start;
 	int end;
-	/
+	
 	//llenar Q_parcial de 0s
 	for(i = 0; i < *filas_por_proceso * n; i++) {
 		*(Q_parcial + i) = 0;
