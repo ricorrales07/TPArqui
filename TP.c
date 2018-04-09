@@ -6,9 +6,10 @@
 #include "mpi.h"
 
 int *repartirFilas(int *M, int filas, int numprocs, int myid, int *filas_por_proceso);
-int *calcularQ(int *M, int* v, int myid);
+void calcularQ(int *M_porcion, int *v, int myid, int *filas_por_proceso, int n, int *Q_parcial, int *Q);
 void calcularP(int *M_porcion, int myid, int numprocs, int *filas_por_proceso, int n, int *P);
 int calcularTp(int *P, int n);
+void calcularB(int *M_porcion, int *B_parcial, int myid, int numprocs, int *filas_por_proceso, int n, int *B);
 void desplegar_resultados(int n, int numprocs, int Tp, double big_start, double small_start, int *M, int *v, int *Q, int *P, int *B);
 
 int i, j, k; //auxiliares para ciclos
@@ -87,7 +88,7 @@ int main(int argc, char **argv) {
 	M_porcion = repartirFilas(M, n, numprocs, myid, filas_por_proceso);
 		
 	//calcular Q = Mv
-	calcularQ(M_porcion, v, myid, Q_parcial, Q);
+	calcularQ(M_porcion, v, myid, filas_por_proceso, n, Q_parcial, Q);
 
 	//calcular P tal que P[i] = cantidad de primos en la columna i de M
 	calcularP(M_porcion, myid, numprocs, filas_por_proceso, n, P);
@@ -97,7 +98,7 @@ int main(int argc, char **argv) {
 		Tp = calcularTp(P, n);
 	
 	//calcular matriz B (suma de elementos en M; ver dibujo en pdf)
-	calcularB(M_porcion, B_parcial, myid, numprocs, B);
+	calcularB(M_porcion, B_parcial, myid, numprocs, filas_por_proceso, n, B);
 
 	//desplegar resultados
 	if (myid == 0) {
@@ -172,7 +173,7 @@ int *repartirFilas(int *M, int n, int numprocs, int myid, int *filas_por_proceso
 	return M_porcion;
 }
 
-void calcularQ(int *M_porcion, int *v, int myid, int *Q_parcial, int *Q) {
+void calcularQ(int *M_porcion, int *v, int myid, int *filas_por_proceso, int n, int *Q_parcial, int *Q) {
 	/****************************
 	M_porcion: porción de M repartida a un proceso
 	v: vector por el cual será multiplicado M
@@ -234,7 +235,7 @@ int calcularTp(int *P, int n) {
 	return accum;
 }
 
-void calcularB(int *M_porcion, int *B_parcial, int myid, int numprocs, int *B) {
+void calcularB(int *M_porcion, int *B_parcial, int myid, int numprocs, int *filas_por_proceso, int n, int *B) {
 	/****************************
 	M_porcion: porción de M repartida a un proceso
 	B_parcial: porción de B a ser calculada por cada proceso
