@@ -6,6 +6,7 @@ int *repartirFilas(int *M, int filas, int numprocs, int myid, int *filas_por_pro
 int *calcularQ(int *M, int* v, int myid);
 void calcularP(int *M_porcion, int myid, int numprocs, int *filas_por_proceso, int n, int *P);
 int calcularTp(int *P, int n);
+void desplegar_resultados(int n, int numprocs, int Tp, double big_start, double small_start, int *M, int *v, int *Q, int *P, int *B);
 
 int i, j, k; //auxiliares para ciclos
 int aux;
@@ -21,10 +22,16 @@ int main(int argc, char **argv) {
 	filas_por_proceso: # de filas que en teoría le tocan a cada proceso (puntero para pasarlo por referencia)
 	P: vector que contiene en la entrada i la cantidad de primos en la columna i de M_porcion (en la mayoría de procesos) o M (en proceso 0 al final)
 	Tp: número de primos en M
+	big_start: momento del inicio del programa
+	small_start: momento después de que el usuario inserta el valor de n 
 	**************************/
 
 	int n, numprocs, myid, Tp;
-	int *M, *v, *Q, *M_porcion, *filas_por_proceso, *P;
+	int *M, *v, *Q, *M_porcion, *filas_por_proceso, *P, *B;
+	double small_start, big_start;
+
+	big_start = MPI_Wtime(); //no estoy seguro si puedo llamar a esta función antes de MPI_Init()	
+	
 	srand(time(NULL));
 	
 	MPI_Init(&argc, &argv);
@@ -37,6 +44,7 @@ int main(int argc, char **argv) {
 			printf("Inserte el numero de filas/columnas (múltiplo de %d): ", numprocs);
 			scanf("%d", &n);
 		} while (n % numprocs != 0);
+		small_start = MPI_Wtime();
 
 		M = (int *) malloc(n * n * sizeof(int)); //tal vez sea mejor alocar por filas (mejor no; complica el scatterv)
 		v = (int *) malloc(n * sizeof(int));
@@ -53,19 +61,6 @@ int main(int argc, char **argv) {
 			}
 			v[i] = rand() % 6;
 		} //end for
-
-		//Imprimimos M y v
-		printf("Matriz M:\n");
-		for (i = 0; i < n; i++) {
-			for (j = 0; j < n; j++) {
-				printf("%d ", *(M + i * n + j));	
-			}
-			printf("\n");
-		} //end for
-		printf("\nVector v:\n");
-		for (i = 0; i < n; i++)
-			printf("%d ", v[i]);
-		printf("\n");
 	} //end if
 
 	MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
@@ -99,13 +94,10 @@ int main(int argc, char **argv) {
 	
 	//calcular matriz B (suma de elementos en M; ver dibujo en pdf)
 	//calcularB(M);
-			  
+
+	//desplegar resultados
 	if (myid == 0) {
-		//desplegar resultados
-		printf("\nVector P:\n");
-		for (i = 0; i < n; i++)
-			printf("%d ", P[i]);
-		printf("\nTp = %d\n", Tp);
+		desplegar_resultados(n, numprocs, Tp, big_start, small_start, M, v, Q, P, B);
 
 		free(M);
 		free(v);
@@ -201,4 +193,107 @@ int calcularTp(int *P, int n) {
 	for (i = 0; i < n; i++)
 		accum += P[i];
 	return accum;
+}
+
+void desplegar_resultados(int n, int numprocs, int Tp, double big_start, double small_start, int *M, int *v, int *Q, int *P, int *B) {
+	double small_end, big_end;
+	FILE *M_file, *v_file, *Q_file, *P_file, *B_file;
+
+	small_end = MPI_Wtime();
+
+	printf("Tiempo desde que se recibió el valor de n hasta ahora: %f segundos\n", small_end - small_start);
+	printf("n: %d\n", n);
+	printf("numero total de procesos: %d\n", numprocs);
+	printf("total de primos en M: %d\n", Tp);
+	
+	if (n > 100) {
+		M_file = fopen("M.txt", "w");
+		if (M_file == NULL)
+			printf("Error durante la creación de archivo M.txt\n");
+		else {
+			for (i = 0; i < n; i++) {
+				for (j = 0; j < n; j++) {
+					//printf("escribiendo entrada %d %d...\n", i, j);
+					fprintf(M_file, "%d ", *(M + i * n + j));
+					//printf("entrada %d %d escrita\n", i, j);	
+				}
+				fprintf(M_file, "\n");
+			} //end for
+			fclose(M_file);
+		} //end else
+
+		v_file = fopen("v.txt", "w");
+		if (v_file == NULL)
+			printf("Error durante la creación de archivo v.txt\n");
+		else {
+			for (i = 0; i < n; i++)
+				fprintf(v_file, "%d ", v[i]);
+			fclose(v_file);
+		} //end else
+
+		/*Q_file = fopen("Q.txt", "w");
+		if (Q_file == NULL)
+			printf("Error durante la creación de archivo Q.txt\n");
+		else {
+			for (i = 0; i < n; i++)
+				fprintf(Q_file, "%d ", Q[i]);
+			fclose(Q_file);
+		} //end else*/
+
+		P_file = fopen("P.txt", "w");
+		if (P_file == NULL)
+			printf("Error durante la creación de archivo P.txt\n");
+		else {
+			for (i = 0; i < n; i++)
+				fprintf(P_file, "%d ", P[i]);
+			fclose(P_file);
+		} //end else
+
+		/*B_file = fopen("B.txt", "w");
+		if (B_file == NULL)
+			printf("Error durante la creación de archivo B.txt\n");
+		else {
+			for (i = 0; i < n; i++) {
+				for (j = 0; j < n; j++) {
+					fprintf(B_file, "%d ", *(B + i * n + j));	
+				}
+				fprintf(B_file, "\n");
+			} //end for
+			fclose(B_file);
+		} //end else*/
+	} //end if
+	else {
+		printf("Matriz M:\n");
+		for (i = 0; i < n; i++) {
+			for (j = 0; j < n; j++) {
+				printf("%d ", *(M + i * n + j));	
+			}
+			printf("\n");
+		} //end for
+
+		printf("\nVector v:\n");
+		for (i = 0; i < n; i++)
+			printf("%d ", v[i]);
+		printf("\n");
+
+		/*printf("\nVector Q:\n");
+		for (i = 0; i < n; i++)
+			printf("%d ", Q[i]);
+		printf("\n");*/
+
+		printf("\nVector P:\n");
+		for (i = 0; i < n; i++)
+			printf("%d ", P[i]);
+
+		/*printf("Matriz B:\n");
+		for (i = 0; i < n; i++) {
+			for (j = 0; j < n; j++) {
+				printf("%d ", *(B + i * n + j));	
+			}
+			printf("\n");
+		} //end for*/
+	}
+
+	big_end = MPI_Wtime();
+	printf("Tiempo total de ejecución: %f segundos\n", big_end - big_start);
 }
