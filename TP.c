@@ -30,7 +30,7 @@ int main(int argc, char **argv) {
 	**************************/
 
 	int n, numprocs, myid, Tp;
-	int *M, *v, *Q, *Q_parcial, *M_porcion, *filas_por_proceso, *P, *B;
+	int *M, *v, *Q, *Q_parcial, *M_porcion, *filas_por_proceso, *P, *B, *B_parcial;
 	double small_start, big_start;
 
 	big_start = MPI_Wtime(); //no estoy seguro si puedo llamar a esta función antes de MPI_Init()	
@@ -97,7 +97,7 @@ int main(int argc, char **argv) {
 		Tp = calcularTp(P, n);
 	
 	//calcular matriz B (suma de elementos en M; ver dibujo en pdf)
-	//calcularB(M);
+	calcularB(M_porcion, B_parcial, myid, numprocs, B);
 
 	//desplegar resultados
 	if (myid == 0) {
@@ -180,12 +180,12 @@ void calcularQ(int *M_porcion, int *v, int myid, int *Q_parcial, int *Q) {
 	Q_parcial: porción de Q a ser calculada por cada proceso
 	Q: matriz resultante
 	****************************/
-	Q_parcial = (int *) malloc(*filas_por_proceso * n * sizeof(int)); 
+	Q_parcial = (int *) malloc(*filas_por_proceso * sizeof(int)); 
 	int start;
 	int end;
 	
 	//llenar Q_parcial de 0s
-	for(i = 0; i < *filas_por_proceso * n; i++) {
+	for(i = 0; i < *filas_por_proceso; i++) {
 		*(Q_parcial + i) = 0;
 	}
 	
@@ -200,8 +200,8 @@ void calcularQ(int *M_porcion, int *v, int myid, int *Q_parcial, int *Q) {
 		}
 	}
 	
-	MPI_Gather(Q_parcial, *filas_por_proceso * n, MPI_INT,
-				Q, *filas_por_proceso * n, MPI_INT,
+	MPI_Gather(Q_parcial, *filas_por_proceso, MPI_INT,
+				Q, *filas_por_proceso, MPI_INT,
 				0, MPI_COMM_WORLD);
 	
 	free(Q_parcial);
@@ -232,6 +232,46 @@ int calcularTp(int *P, int n) {
 	for (i = 0; i < n; i++)
 		accum += P[i];
 	return accum;
+}
+
+void calcularB(int *M_porcion, int *B_parcial, int myid, int numprocs, int *B) {
+	/****************************
+	M_porcion: porción de M repartida a un proceso
+	B_parcial: porción de B a ser calculada por cada proceso
+	myid: id del proceso actual
+	numprocs: número total de procesos
+	B: matriz resultante
+	****************************/
+	B_parcial = (int *) malloc(*filas_por_proceso * n * sizeof(int)); 
+	int start;
+	int end;
+	
+	start = (myid == 0) ? 0 : 1;
+	end = start + *filas_por_proceso;
+
+	for (i = start; i < end; i++, i++) {
+		for (j = 0; j < n; k++) {
+			*(B_parcial + i * *filas_por_proceso + j) = *(M_porcion + i * n + j); //M[i][j]
+			if(myid != 0 || i > 0) { //si no es la primera fila
+				*(B_parcial + i * *filas_por_proceso + j) += *(M_porcion + (i - 1) * n + j); //M[i-1][j]
+			}
+			if(myid != numprocs - 1 || i < n - 1) { //si no es la ultima fila
+				*(B_parcial + i * *filas_por_proceso + j) += *(M_porcion + (i + 1) * n + j); //M[i+1][j]
+			}
+			if(j > 0) { //si no es la primera columna
+				*(B_parcial + i * *filas_por_proceso + j) += *(M_porcion + i * n + j - 1); //M[i][j-1]
+			}
+			if(j < n - 1) { //si no es la ultima columna
+				*(B_parcial + i * *filas_por_proceso + j) += *(M_porcion + i * n + j + 1); //M[i][j+1]
+			}
+		}
+	}
+	
+	MPI_Gather(B_parcial, *filas_por_proceso * n, MPI_INT,
+				B, *filas_por_proceso * n, MPI_INT,
+				0, MPI_COMM_WORLD);
+	
+	free(B_parcial);
 }
 
 
