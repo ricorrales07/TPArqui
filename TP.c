@@ -1,3 +1,6 @@
+//Ricardo Corrales Barquero, B32090
+//Gabriel Vidaurre Rodríguez, 
+
 #include <stdio.h>
 #include <stdlib.h>
 #include "mpi.h"
