@@ -33,14 +33,18 @@ int main(int argc, char **argv) {
 	
 	if (myid == 0) {
 	
-		printf("Inserte el numero de filas/columnas (múltiplo de %d): ", numprocs);
-		scanf("%d", &n);
-		//TODO: revisar que de verdad sea un múltiplo
+		do {
+			printf("Inserte el numero de filas/columnas (múltiplo de %d): ", numprocs);
+			scanf("%d", &n);
+		} while (n % numprocs != 0);
 
 		M = (int *) malloc(n * n * sizeof(int)); //tal vez sea mejor alocar por filas (mejor no; complica el scatterv)
 		v = (int *) malloc(n * sizeof(int));
 
-		//TODO: revisar que no sean NULL
+		if (M == NULL || v == NULL) {
+			printf("Error al asignar memoria.\n");
+			MPI_Abort(MPI_COMM_WORLD, 1);
+		}
 
 		//Se generan M y v
 		for (i = 0; i < n; i++) {
@@ -70,7 +74,10 @@ int main(int argc, char **argv) {
 
 	//cada proceso tiene un vector P para resultados parciales
 	P = (int *) malloc(n * sizeof(int));
-	//TODO: revisar que no sea NULL
+	if (P == NULL) {
+		printf("Error al asignar memoria en proceso %d.\n", myid);
+		MPI_Abort(MPI_COMM_WORLD, 1);
+	}
 	for (i = 0; i < n; i++)
 		P[i] = 0;
 	filas_por_proceso = (int *) malloc(sizeof(int));
@@ -119,7 +126,6 @@ int *repartirFilas(int *M, int n, int numprocs, int myid, int *filas_por_proceso
 	sendcounts: cuántos elementos le tocan a cada proceso
 	displs: a partir de dónde se toma cada conjunto de elementos
 	recvcount: cuántos elementos recibe cada proceso
-	TODO: revisar si esta info se ocupa más adelante y sacarla de acá si es necesario
 	****************************/
 	int sendcounts[numprocs], displs[numprocs], recvcount;
 	int *M_porcion;
@@ -156,7 +162,10 @@ int *repartirFilas(int *M, int n, int numprocs, int myid, int *filas_por_proceso
 
 	//asignar M_porcion
 	M_porcion = (int *) malloc(recvcount * sizeof(int));
-	//TODO: revisar que no sea NULL
+	if (M_porcion == NULL) {
+		printf("Error al asignar memoria en proceso %d.", myid);
+		MPI_Abort(MPI_COMM_WORLD, 1);
+	}
 	
 	
 
