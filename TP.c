@@ -275,7 +275,7 @@ void calcularB(int *M_porcion, int *B_parcial, int myid, int numprocs, int *fila
 	for (i = start; i < end; i++) {
 		for (j = 0; j < n; j++) {
 			*(B_parcial + B_i * n + j) = *(M_porcion + i * n + j); //M[i][j]
-			printf("Proceso %d fila %d col %d: %d.\n", myid, i, j, *(B_parcial + B_i * n + j));
+			//printf("Proceso %d fila %d col %d: %d.\n", myid, i, j, *(B_parcial + B_i * n + j));
 			if(myid != 0 || i > 0) { //si no es la primera fila
 				*(B_parcial + B_i * n + j) += *(M_porcion + (i - 1) * n + j); //M[i-1][j]
 			}
@@ -288,7 +288,7 @@ void calcularB(int *M_porcion, int *B_parcial, int myid, int numprocs, int *fila
 			if(j < n - 1) { //si no es la ultima columna
 				*(B_parcial + B_i * n + j) += *(M_porcion + i * n + j + 1); //M[i][j+1]
 			}
-			printf("Proceso %d fila %d col %d: %d.\n", myid, i, j, *(B_parcial + B_i * n + j));
+			//printf("Proceso %d fila %d col %d: %d.\n", myid, i, j, *(B_parcial + B_i * n + j));
 		}
 		B_i++;
 	}
