@@ -50,7 +50,7 @@ int main(int argc, char **argv) {
 		} while (n % numprocs != 0);
 		small_start = MPI_Wtime();
 
-		M = (int *) malloc(n * n * sizeof(int)); //tal vez sea mejor alocar por filas (mejor no; complica el scatterv)
+		M = (int *) malloc(n * n * sizeof(int));
 		B = (int *) malloc(n * n * sizeof(int));
 		Q = (int *) malloc(n * sizeof(int));
 		v = (int *) malloc(n * sizeof(int));
@@ -240,7 +240,6 @@ void calcularP(int *M_porcion, int myid, int numprocs, int *filas_por_proceso, i
 		}
 	}
 
-	//No estoy seguro si se puede usar P tanto en el sendbuf como en el recvbuf; si da errores, revisar esta parte.
 	MPI_Reduce(P, P, n, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 }
 
