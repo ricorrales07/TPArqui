@@ -42,6 +42,12 @@ int main(int argc, char **argv) {
 	MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
 	MPI_Comm_rank(MPI_COMM_WORLD, &myid);
 	
+	v = (int *) malloc(n * sizeof(int));
+	if (v == NULL) {
+			printf("Error al asignar memoria.\n");
+			MPI_Abort(MPI_COMM_WORLD, 1);
+		}
+	
 	if (myid == 0) {
 	
 		do {
@@ -51,10 +57,10 @@ int main(int argc, char **argv) {
 		small_start = MPI_Wtime();
 
 		M = (int *) malloc(n * n * sizeof(int)); //tal vez sea mejor alocar por filas (mejor no; complica el scatterv)
+		B = (int *) malloc(n * n * sizeof(int));
 		Q = (int *) malloc(n * sizeof(int));
-		v = (int *) malloc(n * sizeof(int));
 
-		if (M == NULL || v == NULL) {
+		if (M == NULL) {
 			printf("Error al asignar memoria.\n");
 			MPI_Abort(MPI_COMM_WORLD, 1);
 		}
@@ -69,6 +75,7 @@ int main(int argc, char **argv) {
 	} //end if
 
 	MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(v, n, MPI_INT, 0, MPI_COMM_WORLD);
 
 	//printf("Proceso %d recibió n: %d\n", myid, n);
 
@@ -82,11 +89,9 @@ int main(int argc, char **argv) {
 		P[i] = 0;
 	filas_por_proceso = (int *) malloc(sizeof(int));
 
-	//printf("Proceso %d asignó memoria a P.\n", myid);
-
 	//repartir las filas de la matriz
 	M_porcion = repartirFilas(M, n, numprocs, myid, filas_por_proceso);
-		
+	
 	//calcular Q = Mv
 	calcularQ(M_porcion, v, myid, filas_por_proceso, n, Q_parcial, Q);
 
@@ -96,7 +101,7 @@ int main(int argc, char **argv) {
 	//calcular tp = número total de primos en M
 	if (myid == 0)
 		Tp = calcularTp(P, n);
-	
+
 	//calcular matriz B (suma de elementos en M; ver dibujo en pdf)
 	calcularB(M_porcion, B_parcial, myid, numprocs, filas_por_proceso, n, B);
 
@@ -106,6 +111,7 @@ int main(int argc, char **argv) {
 
 		free(M);
 		free(v);
+		free(B);
 	}
 
 	free(M_porcion);
@@ -192,14 +198,16 @@ void calcularQ(int *M_porcion, int *v, int myid, int *filas_por_proceso, int n, 
 	
 	start = (myid == 0) ? 0 : 1;
 	end = start + *filas_por_proceso;
-
-	for (i = 0; i < *filas_por_proceso; i++) {
-		for (j = start; j < end; j++) {
+	i=0;
+	//for (i = 0; i < *filas_por_proceso; i++) {
+		for (j = start; j < end; j++, i++) {
 			for (k = 0; k < n; k++) {
 				Q_parcial[i] += *(M_porcion + j * n + k) * v[k];
+				//printf("M[%d][%d]: %d, v: %d\n", j, k, *(M_porcion + j * n + k), v[k]);
+				//printf("Q_parcial[%d]: %d\n", i, Q_parcial[i]);
 			}
 		}
-	}
+	//}
 	
 	MPI_Gather(Q_parcial, *filas_por_proceso, MPI_INT,
 				Q, *filas_por_proceso, MPI_INT,
@@ -246,26 +254,31 @@ void calcularB(int *M_porcion, int *B_parcial, int myid, int numprocs, int *fila
 	B_parcial = (int *) malloc(*filas_por_proceso * n * sizeof(int)); 
 	int start;
 	int end;
+	int B_i;
 	
 	start = (myid == 0) ? 0 : 1;
 	end = start + *filas_por_proceso;
+	B_i = 0;
 
-	for (i = start; i < end; i++, i++) {
-		for (j = 0; j < n; k++) {
-			*(B_parcial + i * *filas_por_proceso + j) = *(M_porcion + i * n + j); //M[i][j]
+	for (i = start; i < end; i++) {
+		for (j = 0; j < n; j++) {
+			*(B_parcial + B_i * n + j) = *(M_porcion + i * n + j); //M[i][j]
+			printf("Proceso %d fila %d col %d: %d.\n", myid, i, j, (B_parcial + B_i * n + j));
 			if(myid != 0 || i > 0) { //si no es la primera fila
-				*(B_parcial + i * *filas_por_proceso + j) += *(M_porcion + (i - 1) * n + j); //M[i-1][j]
+				*(B_parcial + B_i * n + j) += *(M_porcion + (i - 1) * n + j); //M[i-1][j]
 			}
 			if(myid != numprocs - 1 || i < n - 1) { //si no es la ultima fila
-				*(B_parcial + i * *filas_por_proceso + j) += *(M_porcion + (i + 1) * n + j); //M[i+1][j]
+				*(B_parcial + B_i * n + j) += *(M_porcion + (i + 1) * n + j); //M[i+1][j]
 			}
 			if(j > 0) { //si no es la primera columna
-				*(B_parcial + i * *filas_por_proceso + j) += *(M_porcion + i * n + j - 1); //M[i][j-1]
+				*(B_parcial + B_i * n + j) += *(M_porcion + i * n + j - 1); //M[i][j-1]
 			}
 			if(j < n - 1) { //si no es la ultima columna
-				*(B_parcial + i * *filas_por_proceso + j) += *(M_porcion + i * n + j + 1); //M[i][j+1]
+				*(B_parcial + B_i * n + j) += *(M_porcion + i * n + j + 1); //M[i][j+1]
 			}
+			printf("Proceso %d fila %d col %d: %d.\n", myid, i, j, (B_parcial + B_i * n + j));
 		}
+		B_i++;
 	}
 	
 	MPI_Gather(B_parcial, *filas_por_proceso * n, MPI_INT,
@@ -312,14 +325,14 @@ void desplegar_resultados(int n, int numprocs, int Tp, double big_start, double 
 			fclose(v_file);
 		} //end else
 
-		/*Q_file = fopen("Q.txt", "w");
+		Q_file = fopen("Q.txt", "w");
 		if (Q_file == NULL)
 			printf("Error durante la creación de archivo Q.txt\n");
 		else {
 			for (i = 0; i < n; i++)
 				fprintf(Q_file, "%d ", Q[i]);
 			fclose(Q_file);
-		} //end else*/
+		} //end else
 
 		P_file = fopen("P.txt", "w");
 		if (P_file == NULL)
@@ -330,7 +343,7 @@ void desplegar_resultados(int n, int numprocs, int Tp, double big_start, double 
 			fclose(P_file);
 		} //end else
 
-		/*B_file = fopen("B.txt", "w");
+		B_file = fopen("B.txt", "w");
 		if (B_file == NULL)
 			printf("Error durante la creación de archivo B.txt\n");
 		else {
@@ -341,7 +354,7 @@ void desplegar_resultados(int n, int numprocs, int Tp, double big_start, double 
 				fprintf(B_file, "\n");
 			} //end for
 			fclose(B_file);
-		} //end else*/
+		} //end else
 	} //end if
 	else {
 		printf("Matriz M:\n");
@@ -357,22 +370,23 @@ void desplegar_resultados(int n, int numprocs, int Tp, double big_start, double 
 			printf("%d ", v[i]);
 		printf("\n");
 
-		/*printf("\nVector Q:\n");
+		printf("\nVector Q:\n");
 		for (i = 0; i < n; i++)
 			printf("%d ", Q[i]);
-		printf("\n");*/
+		printf("\n");
 
 		printf("\nVector P:\n");
 		for (i = 0; i < n; i++)
 			printf("%d ", P[i]);
+		printf("\n");
 
-		/*printf("Matriz B:\n");
+		printf("\nMatriz B:\n");
 		for (i = 0; i < n; i++) {
 			for (j = 0; j < n; j++) {
 				printf("%d ", *(B + i * n + j));	
 			}
 			printf("\n");
-		} //end for*/
+		} //end for
 	}
 
 	big_end = MPI_Wtime();
