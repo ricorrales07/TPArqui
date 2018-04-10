@@ -34,19 +34,13 @@ int main(int argc, char **argv) {
 	int *M, *v, *Q, *Q_parcial, *M_porcion, *filas_por_proceso, *P, *B, *B_parcial;
 	double small_start, big_start;
 
-	big_start = MPI_Wtime(); //no estoy seguro si puedo llamar a esta función antes de MPI_Init()	
+	big_start = MPI_Wtime();	
 	
 	srand(time(NULL));
 	
 	MPI_Init(&argc, &argv);
 	MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
 	MPI_Comm_rank(MPI_COMM_WORLD, &myid);
-	
-	v = (int *) malloc(n * sizeof(int));
-	if (v == NULL) {
-			printf("Error al asignar memoria.\n");
-			MPI_Abort(MPI_COMM_WORLD, 1);
-		}
 	
 	if (myid == 0) {
 	
@@ -59,9 +53,10 @@ int main(int argc, char **argv) {
 		M = (int *) malloc(n * n * sizeof(int)); //tal vez sea mejor alocar por filas (mejor no; complica el scatterv)
 		B = (int *) malloc(n * n * sizeof(int));
 		Q = (int *) malloc(n * sizeof(int));
+		v = (int *) malloc(n * sizeof(int));
 
-		if (M == NULL) {
-			printf("Error al asignar memoria.\n");
+		if (M == NULL || B == NULL || Q == NULL || v == NULL) {
+			printf("Error al asignar memoria en proceso 0\n");
 			MPI_Abort(MPI_COMM_WORLD, 1);
 		}
 
@@ -74,10 +69,22 @@ int main(int argc, char **argv) {
 		} //end for
 	} //end if
 
+
+
 	MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	//printf("Proceso %d recibió n: %d\n", myid, n);
+
+	if (myid != 0) {
+		v = (int *) malloc(n * sizeof(int));
+		if (v == NULL) {
+			printf("Error al asignar memoria en proceso 0\n");
+			MPI_Abort(MPI_COMM_WORLD, 1);
+		}
+	}
+
 	MPI_Bcast(v, n, MPI_INT, 0, MPI_COMM_WORLD);
 
-	//printf("Proceso %d recibió n: %d\n", myid, n);
+
 
 	//cada proceso tiene un vector P para resultados parciales
 	P = (int *) malloc(n * sizeof(int));
@@ -110,10 +117,11 @@ int main(int argc, char **argv) {
 		desplegar_resultados(n, numprocs, Tp, big_start, small_start, M, v, Q, P, B);
 
 		free(M);
-		free(v);
 		free(B);
+		free(Q);
 	}
 
+	free(v);
 	free(M_porcion);
 	free(P);
 	free(filas_por_proceso);
@@ -251,7 +259,11 @@ void calcularB(int *M_porcion, int *B_parcial, int myid, int numprocs, int *fila
 	numprocs: número total de procesos
 	B: matriz resultante
 	****************************/
-	B_parcial = (int *) malloc(*filas_por_proceso * n * sizeof(int)); 
+	B_parcial = (int *) malloc(*filas_por_proceso * n * sizeof(int));
+	if (B_parcial == NULL) {
+		printf("Error al asignar memoria en proceso %d\n", myid);
+		MPI_Abort(MPI_COMM_WORLD, 1);
+	}
 	int start;
 	int end;
 	int B_i;
@@ -263,11 +275,11 @@ void calcularB(int *M_porcion, int *B_parcial, int myid, int numprocs, int *fila
 	for (i = start; i < end; i++) {
 		for (j = 0; j < n; j++) {
 			*(B_parcial + B_i * n + j) = *(M_porcion + i * n + j); //M[i][j]
-			printf("Proceso %d fila %d col %d: %d.\n", myid, i, j, (B_parcial + B_i * n + j));
+			printf("Proceso %d fila %d col %d: %d.\n", myid, i, j, *(B_parcial + B_i * n + j));
 			if(myid != 0 || i > 0) { //si no es la primera fila
 				*(B_parcial + B_i * n + j) += *(M_porcion + (i - 1) * n + j); //M[i-1][j]
 			}
-			if(myid != numprocs - 1 || i < n - 1) { //si no es la ultima fila
+			if(myid != numprocs - 1 || i < end - 1) { //si no es la ultima fila
 				*(B_parcial + B_i * n + j) += *(M_porcion + (i + 1) * n + j); //M[i+1][j]
 			}
 			if(j > 0) { //si no es la primera columna
@@ -276,7 +288,7 @@ void calcularB(int *M_porcion, int *B_parcial, int myid, int numprocs, int *fila
 			if(j < n - 1) { //si no es la ultima columna
 				*(B_parcial + B_i * n + j) += *(M_porcion + i * n + j + 1); //M[i][j+1]
 			}
-			printf("Proceso %d fila %d col %d: %d.\n", myid, i, j, (B_parcial + B_i * n + j));
+			printf("Proceso %d fila %d col %d: %d.\n", myid, i, j, *(B_parcial + B_i * n + j));
 		}
 		B_i++;
 	}
